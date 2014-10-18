@@ -49,3 +49,10 @@ example for <i>"http://svn.apache.org/repos/asf/spamassassin/trunk/"</i>:
     {"id":"mmartinec","name":"mmartinec","startTime":1186757931215,"endTime":1412080258311},
     {"id":"khopesh","name":"khopesh","startTime":1258692998052,"endTime":1409852963975},
     {"id":"axb","name":"axb","startTime":1247253936122,"endTime":1413300388984}]
+    
+    
+##Run instructions
+    
+In IntelliJIDEA run src/main/scala/teamstats/ServerLogic.scala:Server. It will start an http server and open a browser to a index page. As we do not have that yet, you'll need manually add a path of a desired REST endpoint to the browser URL.
+
+For the application to function a running mongodb is required. http://www.mongodb.org/downloads . Use <i>mongod</i> command to run it.

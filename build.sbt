@@ -9,6 +9,14 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "net.liftweb" %% "lift-json" % "3.0-M1"
 
-resolvers ++= Seq(
-  "java m2" at "http://download.java.net/maven/2"
+libraryDependencies ++= Seq (
+  "org.mongodb" %% "casbah" % "2.7.3",
+  "com.novus" %% "salat" % "1.9.9"
 )
+
+resolvers ++= Seq(
+  "java m2" at "http://download.java.net/maven/2",
+  "Sonatype releases" at "https://oss.sonatype.org/content/repositories/releases",
+  "repo.novus rels" at "http://repo.novus.com/releases/"
+)
+
