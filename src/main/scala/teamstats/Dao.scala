@@ -44,8 +44,6 @@ class Dao {
       })
   }
 
-  def getPersonContributions: List[PersonContribution] = getPersonContributionsUpdatable.get
-
   def update(collection: MongoCollectionBase, oldDBO: Option[DBObject], newDBO: DBObject): Unit = {
     val idFieldName = "_id"
     val query = DBObject(idFieldName -> oldDBO.map(_.get(idFieldName)).getOrElse(""))

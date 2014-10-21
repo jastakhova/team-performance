@@ -2,10 +2,6 @@ package teamstats
 
 import java.util.{TimerTask, Timer}
 
-import com.mongodb.casbah.MongoCollectionBase
-import com.novus.salat._
-import com.novus.salat.global._
-import com.mongodb.casbah.Imports._
 import org.tmatesoft.svn.core.{SVNLogEntry, SVNURL}
 import org.tmatesoft.svn.core.internal.io.dav.DAVRepositoryFactory
 import org.tmatesoft.svn.core.internal.io.fs.FSRepositoryFactory
@@ -28,7 +24,7 @@ object SVNUp {
     }, 0l, 5*60*1000)
   }
 
-  private def update {
+  def update: Boolean = {
     Try {
       val basicInfoUpdatable = dao.getBasicInfoUpdatable
       val basicInfo = basicInfoUpdatable.get
@@ -45,8 +41,11 @@ object SVNUp {
         basicInfoUpdatable.update(basicInfo.copy(lastRevision = endRevision))
       }
     } match {
-      case Success(nothing) => /* Cool! Nicely done! */
-      case Failure(e) => e.printStackTrace()
+      case Success(nothing) => true /* Cool! Nicely done! */
+      case Failure(e) => {
+        e.printStackTrace()
+        false
+      }
     }
   }
 
