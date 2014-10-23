@@ -17,16 +17,17 @@ import scala.util.{Success, Failure, Try}
 object SVNUp {
 
   val dao = Dao()
+  val termProcessor = new TermProcessor()
 
   def main(args: Array[String]) {
     new Timer().schedule(new TimerTask() {
-      override def run(): Unit = update
+      override def run(): Unit = update(true)
     }, 0l, 5*60*1000)
   }
 
-  def update: Boolean = {
+  def update(reload: Boolean = false): Boolean = {
     Try {
-      val basicInfoUpdatable = dao.getBasicInfoUpdatable
+      val basicInfoUpdatable = dao.getBasicInfoUpdatable(reload)
       val basicInfo = basicInfoUpdatable.get
 
       DAVRepositoryFactory.setup
@@ -35,9 +36,12 @@ object SVNUp {
 
       val repository = SVNRepositoryFactory.create(SVNURL.parseURIEncoded(basicInfo.url))
       val endRevision = repository.getLatestRevision
+      println("Last revision was " + basicInfo.lastRevision + " current revision from repo is " + endRevision)
 
       if (endRevision != basicInfo.lastRevision) {
-        updatePersonContributions(repository, basicInfo.lastRevision, endRevision)
+        val logEntries = retrieveLogEntries(repository, basicInfo.lastRevision, endRevision)
+        updatePersonContributions(logEntries, reload)
+        updatePersonWords(logEntries, reload)
         basicInfoUpdatable.update(basicInfo.copy(lastRevision = endRevision))
       }
     } match {
@@ -49,16 +53,18 @@ object SVNUp {
     }
   }
 
-  private def updatePersonContributions(repository: SVNRepository, startRevision: Long, endRevision: Long): Unit = {
-    val olderPersonContributionsUpdatable = dao.getPersonContributionsUpdatable
+  private def retrieveLogEntries(repository: SVNRepository, startRevision: Long, endRevision: Long): Iterable[SVNLogEntry] = {
+    repository.log(Array(""), null, startRevision, endRevision, true, true).map(_.asInstanceOf[SVNLogEntry])
+  }
+
+  private def updatePersonContributions(logEntries: Iterable[SVNLogEntry], reload: Boolean): Unit = {
+    val olderPersonContributionsUpdatable = dao.getPersonContributionsUpdatable(reload)
     val olderPersonContributions = olderPersonContributionsUpdatable.get
 
-    println("Old contribs - " + olderPersonContributions.size + " start revision - " + startRevision)
+    println("Old contribs - " + olderPersonContributions.size)
     val olderPersonContributionsMap = olderPersonContributions.map(contrib => contrib.name -> contrib).toMap
 
-    val logEntries = repository.log(Array(""), null, startRevision, endRevision, true, true)
-    val contributions = logEntries.foldLeft(olderPersonContributionsMap) {(result, entry) => {
-      val svnLogEntry = entry.asInstanceOf[SVNLogEntry]
+    val contributions = logEntries.foldLeft(olderPersonContributionsMap) {(result, svnLogEntry) => {
       val prevContribution = result.get(svnLogEntry.getAuthor)
 
       val logEntryTime = svnLogEntry.getDate.getTime
@@ -68,8 +74,31 @@ object SVNUp {
       result + (svnLogEntry.getAuthor -> PersonContribution(svnLogEntry.getAuthor, svnLogEntry.getAuthor, startTime, endTime))
     }}
 
-    println("New contribs - " + contributions.size + " endRevision - " + endRevision)
+    println("New contribs - " + contributions.size)
     olderPersonContributionsUpdatable.update(List() ++ contributions.values)
+  }
+
+  private def updatePersonWords(logEntries: Iterable[SVNLogEntry], reload: Boolean): Unit = {
+    val wordsUpdatable = dao.getWordsUpdatable(reload)
+    val olderWords = wordsUpdatable.get
+
+    val updatedWords = logEntries.foldLeft(olderWords)((res, logEntry) => {
+      val author = logEntry.getAuthor
+      val message = logEntry.getMessage
+
+      val retrievedWords = termProcessor.retrieveAllWordsAndPhrasesWithItsFrequency(message)
+      retrievedWords.foldLeft(res){
+        case(localres, (word, frequency)) =>
+        {
+          val olderWordFrequency = res.getOrElse(word, Map[String, Integer]())
+          val olderWordUsage:Integer = olderWordFrequency.getOrElse(author, 0)
+          res.updated(word, olderWordFrequency.updated(author, olderWordUsage + 1))
+        }
+      }
+    })
+
+    println("Words collected is " + updatedWords.size)
+    wordsUpdatable.update(updatedWords)
   }
 }
 

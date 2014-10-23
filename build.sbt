@@ -14,6 +14,8 @@ libraryDependencies ++= Seq (
   "com.novus" %% "salat" % "1.9.9"
 )
 
+libraryDependencies += "com.google.guava" % "guava" % "18.0"
+
 resolvers ++= Seq(
   "java m2" at "http://download.java.net/maven/2",
   "Sonatype releases" at "https://oss.sonatype.org/content/repositories/releases",

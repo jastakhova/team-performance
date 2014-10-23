@@ -1,9 +1,11 @@
 package teamstats
 
-import com.mongodb.casbah.MongoCollectionBase
+import com.mongodb.casbah.{Imports, MongoCollectionBase}
 import com.novus.salat._
 import com.novus.salat.global._
 import com.mongodb.casbah.Imports._
+import scala.language.implicitConversions
+import scala.collection.convert.WrapAsScala.mapAsScalaMap
 
 
 /**
@@ -13,15 +15,15 @@ class Dao {
 
   val db = MongoClient("localhost", 27017)("main")
 
-  def getBasicInfoUpdatable: Updatable[BasicInfo] = {
-    val basicInfoCollection = db("basic_info")
+  def getBasicInfoUpdatable(cleanPrevious: Boolean = false): Updatable[BasicInfo] = {
+    val basicInfoCollection = retrieveCollection("basic_info", cleanPrevious)
     val basicInfoDBO = basicInfoCollection.findOne()
     val basicInfo = basicInfoDBO.map(dbo => grater[BasicInfo].asObject(dbo)).getOrElse(BasicInfo())
     new Updatable[BasicInfo](basicInfoCollection, basicInfoDBO, basicInfo, this)
   }
 
-  def getPersonContributionsUpdatable: Updatable[List[PersonContribution]] = {
-    val personContributionsCollection = db("person_contribution")
+  def getPersonContributionsUpdatable(cleanPrevious: Boolean = false): Updatable[List[PersonContribution]] = {
+    val personContributionsCollection = retrieveCollection("person_contribution", cleanPrevious)
     val contribField = "contribs"
 
     val olderPersonContributionsDBO = personContributionsCollection.findOne()
@@ -42,6 +44,40 @@ class Dao {
           DBObject(contribField -> MongoDBList(contribDBOs: _*))
         }
       })
+  }
+
+  def getWordsUpdatable(cleanPrevious: Boolean = false): Updatable[Map[String, Map[String, Integer]]] = {
+    val wordsCollection = retrieveCollection("words", cleanPrevious)
+    val olderWordsDBO = wordsCollection.findOne()
+
+    val words: Map[String, Map[String, Integer]] = olderWordsDBO.map(
+     dbo =>
+     {
+       dbo.toMap.flatMap {
+         case (key, value) if value.isInstanceOf[DBObject] =>
+           Some(key.toString, value.asInstanceOf[DBObject].toMap.map {
+             case (key, value) => (key.toString, value.asInstanceOf[Integer])
+           }.toMap)
+         case _ => None
+       }.toMap
+     }
+    ).getOrElse(Map[String, Map[String, Integer]]())
+
+    new Updatable[Map[String, Map[String, Integer]]] (wordsCollection, olderWordsDBO, words, this,
+      new ObjectContructor[Map[String, Map[String, Integer]]]() {
+        override def construct(data: Map[String, Map[String, Integer]])(implicit m: Manifest[Map[String, Map[String, Integer]]]): Imports.DBObject = {
+          new MongoDBObject(data.map{
+            case (key, value) => (key, new MongoDBObject(value))
+          })
+        }
+      })
+  }
+
+  private def retrieveCollection(name: String, clean: Boolean): MongoCollection = {
+    val collection = db(name)
+    if (clean)
+      collection.drop()
+    collection
   }
 
   def update(collection: MongoCollectionBase, oldDBO: Option[DBObject], newDBO: DBObject): Unit = {

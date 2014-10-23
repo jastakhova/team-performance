@@ -6,7 +6,7 @@ package teamstats
 class OverviewProvider {
   val dao = Dao()
 
-  def getFlatCommitOverview: Iterable[PersonContribution] = dao.getPersonContributionsUpdatable.get
+  def getFlatCommitOverview: Iterable[PersonContribution] = dao.getPersonContributionsUpdatable().get
 }
 
 case class PersonContribution(id: String, name: String, startTime: Long, endTime: Long)

@@ -1,10 +1,10 @@
 package teamstats
 
-import net.liftweb.json.NoTypeHints
+import net.liftweb.json.{DefaultFormats, Serialization, NoTypeHints}
 import unfiltered.request.{GET, POST, Path, Seg}
 import unfiltered.response.{ResponseString, JsonContent, ComposeResponse, Ok}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
  * @author Julia Astakhova
@@ -13,6 +13,7 @@ class ServerLogic extends unfiltered.filter.Plan {
 
   val overviewProvider = new OverviewProvider()
   val repoProvider = new RepoProvider()
+  val personProvider = new PersonProvider()
 
   override def intent = {
     case GET(Path("/overview/flat")) => {
@@ -22,6 +23,21 @@ class ServerLogic extends unfiltered.filter.Plan {
       new ComposeResponse(JsonContent ~>
         ResponseString(Serialization.write(overviewProvider.getFlatCommitOverview)))
     }
+
+    case GET(Path(Seg("user" :: Decode.utf8(name) :: "words" :: Nil))) => {
+      implicit val formats = DefaultFormats
+      Try {
+        new ComposeResponse(JsonContent ~>
+          ResponseString(Serialization.write(personProvider.getWords(name))))
+      } match {
+        case Success(response) => response
+        case Failure(e) => {
+          e.printStackTrace()
+          throw new RuntimeException(e)
+        }
+      }
+    }
+
     case POST(Path(Seg("repo" :: Decode.utf8(url) :: Nil))) => {
       if (repoProvider.setUrl(url))
         Ok
